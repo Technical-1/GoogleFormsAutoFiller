@@ -42,7 +42,7 @@ flowchart TD
 ### Content script (matching + filling)
 - **Purpose**: Detect form fields, match them to saved answers, and fill them.
 - **Location**: `scripts/GoogleForm.js`
-- **Key responsibilities**: Per input type, select fields and read each field's title; fuzzy-match the title to a saved key via Levenshtein similarity; write the value and dispatch `input`/`change`; observe the form for late-rendered sections.
+- **Key responsibilities**: Per input type, select fields and read each field's title; fuzzy-match the title to a saved key (whole-string Levenshtein or per-word token coverage); write the value and dispatch `input`/`change`; observe the form for late-rendered sections.
 
 ### CSV parser (`GFAFCsv`)
 - **Purpose**: Turn an uploaded CSV into key/value answers.
@@ -86,10 +86,10 @@ flowchart TD
 - **Decision**: Hoist the observer, `disconnect()` before the write pass and reconnect in a `finally`, and debounce observer-driven fills (~120ms).
 - **Rationale**: The observer is still needed for genuinely lazy-loaded sections, so removing it wasn't an option. Pausing it only around self-induced mutations breaks the loop while preserving late-fill behavior.
 
-### Fuzzy matching by normalized Levenshtein similarity
-- **Context**: Form authors phrase the same field many ways (*E-mail*, *email*, *Email Address*); exact-key matching would force users to pre-register every variant.
-- **Decision**: Compute `1 - distance/maxLen` between the lowercased field title and each saved key, and take the best match above a similarity threshold.
-- **Rationale**: One saved key covers many phrasings. Results are memoized per field title (keyed on the saved-key set) so the O(n·m) distance isn't recomputed on every observer tick.
+### Two-path fuzzy matching (whole-string OR token coverage)
+- **Context**: Form authors phrase the same field many ways. Some differ by punctuation (*E-mail* vs *Email*); others are verbose multi-word titles (*Email Address*, *Phone Number*) for a one-word saved key (*Email*, *Phone*). A single normalized-Levenshtein score handles the first but not the second: edit distance is length-sensitive, so *Email Address* scores only ~38% against *Email* and never clears the threshold.
+- **Decision**: Score each title/key pair two ways and take the max: (a) whole-string `1 - distance/maxLen`, and (b) token coverage — split both on whitespace and require every word of the shorter side to clear the threshold against some word of the longer side, then average those word matches.
+- **Rationale**: Token coverage can only *raise* a score (it returns 0 when any token is uncovered), so it adds verbose-title matches without lowering the precision floor — *Username* still doesn't match a saved *Name* because it's a single 50%-similar token. Whitespace-only tokenization keeps *E-mail* a single token, so the whole-string path still owns the punctuation case. Matching stays lexical, not semantic (it won't equate *mobile* with *phone*). Results are memoized per field title (keyed on the saved-key set) so the O(n·m) distance isn't recomputed on every observer tick.
 
 ### Shared, namespaced modules instead of ES modules
 - **Context**: The same parsing/storage logic is needed in both the popup and the content script, but MV3 content scripts and popup `<script>` tags don't share an ES-module graph cleanly.
