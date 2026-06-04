@@ -34,7 +34,7 @@
 - **Package Manager**: none (zero dependencies)
 - **Linting**: none
 - **Formatting**: none
-- **Testing**: none — pure functions (`toISO`, `parseCSV`, Levenshtein similarity) are small enough to verify with `node --check` and ad-hoc checks
+- **Testing**: `test/core.test.js` — a dependency-free Node harness that loads the real content-script sources into a `vm` sandbox (stubbing the browser globals they touch at load time) and asserts on the actual `parseCSV`, `toISO`, and matching functions. Run with `node test/core.test.js`; no framework, consistent with the zero-build stance
 
 ## Key Dependencies
 
