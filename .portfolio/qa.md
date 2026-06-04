@@ -16,7 +16,7 @@ Anyone who fills out many Google Forms — sign-up sheets, event registrations, 
 ## Key Features
 
 ### Fuzzy field matching
-Each form field's title is compared to every saved key by normalized edit distance; the best match above a similarity threshold wins. *E-mail*, *email*, and *Email Address* all map to one saved answer.
+Each form field's title is scored against every saved key two ways — normalized whole-string edit distance, and token coverage (every word of the shorter string must clear the threshold against a word of the longer one) — and the higher score wins if it clears the threshold. *E-mail* and *email* match a saved *Email* by whole-string similarity, while a verbose *Email Address* or *Phone Number* matches a short *Email* / *Phone* by token coverage. Matching is lexical, not semantic: it won't equate *mobile* with *phone*.
 
 ### Reliable auto-fill on dynamic forms
 Google Forms renders sections lazily and reacts to input events. The extension fills on load and watches for new fields, while avoiding the self-triggered re-fill loop that naive DOM automation falls into.
@@ -64,7 +64,7 @@ Levenshtein distance is O(n·m), and the fill can run repeatedly as the form mut
 ## Frequently Asked Questions
 
 ### How does field matching decide what to fill?
-For each form field it reads the title text, lowercases and trims it, and computes `1 - editDistance/maxLength` against every saved key. The highest-scoring key above the similarity threshold is used; if nothing clears the bar, the field is left alone.
+For each form field it reads the title text, lowercases and trims it, and scores it against every saved key. The score is the higher of (a) whole-string similarity, `1 - editDistance/maxLength`, and (b) token coverage — splitting both on whitespace and requiring every word of the shorter side to clear the threshold against some word of the longer side, then averaging those word matches. The highest-scoring key above the threshold is used; if nothing clears the bar, the field is left alone. So a verbose title like *Email Address* fills from a saved *Email*, while unrelated words that merely share letters (*Username* vs *Name*) stay below the bar.
 
 ### Why does it sometimes fill fields that appear after the page loads?
 Google Forms adds fields dynamically (multi-page and conditional questions). A `MutationObserver` watches for those and re-runs the fill, so late-rendered fields still get populated.

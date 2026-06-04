@@ -6,7 +6,7 @@ Save a value once — say *Name → John* — and every form field whose title m
 
 ## Features
 
-- **Fuzzy field matching** — form titles are matched to saved keys by edit-distance similarity, so small wording differences still fill correctly.
+- **Fuzzy field matching** — form titles match saved keys by whole-string edit distance *and* per-word token coverage, so both `E-mail`→`Email` and a verbose `Email Address` / `Phone Number`→`Email` / `Phone` fill correctly. Matching is lexical, not semantic (it won't equate `mobile` with `phone`).
 - **Auto-fill on load + lazy sections** — a `MutationObserver` re-fills fields that Google Forms renders late (multi-page/conditional forms), without re-triggering itself.
 - **CSV import** — bulk-load key/value pairs from a CSV, with an overwrite toggle and a parser that tolerates quoted commas, quoted newlines, and `""` escapes.
 - **Configurable date locale** — choose DD/MM/YYYY, MM/DD/YYYY, or auto-detect; dates are normalized to the `YYYY-MM-DD` value HTML date inputs require.
@@ -49,6 +49,10 @@ No install or build step — it's plain JS loaded directly by the browser.
 # Syntax-check the scripts
 node --check scripts/storage.js scripts/csvParser.js scripts/GoogleForm.js popup/menu.js background.js
 
+# Run the core-logic tests (CSV parser, date normalization, field matching).
+# No dependencies — plain Node loads the real sources in a sandbox.
+node test/core.test.js
+
 # Package for the Chrome Web Store
 zip -r -FS build/Chrome/GoogleFormsAutoFiller.zip * --exclude '*.git*' 'build/*'
 ```
@@ -63,10 +67,12 @@ GoogleFormsAutoFiller/
 │   ├── storage.js         # Shared storage helper (GFAFStorage) + sync→local migration
 │   ├── csvParser.js       # Shared CSV state-machine parser (GFAFCsv)
 │   └── GoogleForm.js      # Content script: matching, filling, observer
-└── popup/
-    ├── menu.html          # Popup UI
-    ├── menu.js            # Popup logic: editing, CSV import, settings
-    └── styles.css         # Popup styles
+├── popup/
+│   ├── menu.html          # Popup UI
+│   ├── menu.js            # Popup logic: editing, CSV import, settings
+│   └── styles.css         # Popup styles
+└── test/
+    └── core.test.js       # Dependency-free tests: CSV, dates, matching
 ```
 
 ## License
